@@ -20,47 +20,6 @@
 
 echo "---> run-csit.sh"
 
-WORKDIR=$(mktemp -d --suffix=-robot-workdir)
-
-# Exit if no arguments are provided and required variables not set
-if [[ $# -eq 0 ]] && [[ -z "${TESTPLAN}" ]] && [[ -z "${TESTOPTIONS}" ]]; then
-    echo
-    echo "Usage: $0 plans/<project>/<functionality> [<robot-options>]"
-    echo
-    echo " <project>, <functionality>, <robot-options>:  "
-    echo "  The same values as for the JJB job template:"
-    echo '  {project}-csit-{functionality}'
-    echo
-    exit 1
-
-elif [[ $# -ne 2 ]] && [[ -z "${TESTPLAN}" ]] && [[ -z "${TESTOPTIONS}" ]]; then
-    echo
-    echo "Script called without arguments, but the following variables"
-    echo " must be set: {TESTPLAN} {TESTOPTIONS}"
-    echo
-    exit 1
-
-elif [[ $# -eq 2 ]]; then
-    export TESTPLAN=$1; export TESTOPTIONS=$2
-fi
-
-# Python version should match that used to setup
-#  robot-framework in other jobs/stages
-# Use pyenv for selecting the python version
-if [[ -d "/opt/pyenv" ]]; then
-    echo "Setup pyenv:"
-    export PYENV_ROOT="/opt/pyenv"
-    export PATH="$PYENV_ROOT/bin:$PATH"
-    pyenv versions
-    if command -v pyenv 1>/dev/null 2>&1; then
-        eval "$(pyenv init - --no-rehash)"
-        # Choose the latest numeric Python version from installed list
-        version=$(pyenv versions --bare \
-            | sed '/^[^0-9]/d' | sort -V | tail -n 1)
-        pyenv local "${version}"
-    fi
-fi
-
 #
 # functions
 #
@@ -164,6 +123,17 @@ function docker_stats {
 # set and save options for quick failure
 harden_set && save_set
 
+if [ $# -eq 0 ]
+then
+    echo
+    echo "Usage: $0 plans/<project>/<functionality> [<robot-options>]"
+    echo
+    echo "    <project>, <functionality>, <robot-options>:  "
+    echo "        The same values as for the '{project}-csit-{functionality}' JJB job template."
+    echo
+    exit 1
+fi
+
 if [[ -z "${WORKSPACE}" ]]; then
     if (git rev-parse --show-toplevel > /dev/null 2>&1); then
         WORKSPACE=$(git rev-parse --show-toplevel)
@@ -174,10 +144,14 @@ if [[ -z "${WORKSPACE}" ]]; then
     fi
 fi
 
-if [[ ! -f "${WORKSPACE}/${TESTPLAN}/testplan.txt" ]]; then
+if [ -f "${WORKSPACE}/${1}/testplan.txt" ]; then
+    export TESTPLAN="${1}"
+else
     echo "testplan not found: ${WORKSPACE}/${TESTPLAN}/testplan.txt"
     exit 2
 fi
+
+export TESTOPTIONS="${2}"
 
 rm -rf "$WORKSPACE/archives/$TESTPLAN"
 mkdir -p "$WORKSPACE/archives/$TESTPLAN"
@@ -190,7 +164,25 @@ source_safely "${WORKSPACE}/prepare-csit.sh"
 # Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
 source_safely "${ROBOT3_VENV}/bin/activate"
 
+WORKDIR=$(mktemp -d --suffix=-robot-workdir)
 cd "${WORKDIR}"
+
+# Python version should match that used to setup
+#  robot-framework in other jobs/stages
+# Use pyenv for selecting the python version
+if [[ -d "/opt/pyenv" ]]; then
+    echo "Setup pyenv:"
+    export PYENV_ROOT="/opt/pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    pyenv versions
+    if command -v pyenv 1>/dev/null 2>&1; then
+        eval "$(pyenv init - --no-rehash)"
+        # Choose the latest numeric Python version from installed list
+        version=$(pyenv versions --bare \
+            | sed '/^[^0-9]/d' | sort -V | tail -n 1)
+        pyenv local "${version}"
+    fi
+fi
 
 # Add csit scripts to PATH
 export PATH="${PATH}:${WORKSPACE}/docker/scripts:${WORKSPACE}/scripts:${ROBOT3_VENV}/bin"
