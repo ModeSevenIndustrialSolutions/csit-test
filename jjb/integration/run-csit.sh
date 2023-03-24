@@ -15,8 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# $1 project/functionality
-# $2 robot options
+# $1 project/functionality {TESTPLAN}
+# $2 robot options         {TESTOPTIONS}
+
+echo "---> run-csit.sh"
 
 #
 # functions
@@ -180,7 +182,8 @@ docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-1-after-setup.txt"
 # Run test plan
 cd "$WORKDIR"
 echo "Reading the testplan:"
-cat "${TESTPLANDIR}/testplan.txt" | egrep -v '(^[[:space:]]*#|^[[:space:]]*$)' | sed "s|^|${WORKSPACE}/tests/|" > testplan.txt
+grep -E -v '(^[[:space:]]*#|^[[:space:]]*$)' "${TESTPLANDIR}/testplan.txt" |\
+    sed "s|^|${WORKSPACE}/tests/|" > testplan.txt
 cat testplan.txt
 SUITES=$( xargs -a testplan.txt )
 
