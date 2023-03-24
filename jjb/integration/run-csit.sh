@@ -187,10 +187,15 @@ grep -E -v '(^[[:space:]]*#|^[[:space:]]*$)' "${TESTPLANDIR}/testplan.txt" |\
 cat testplan.txt
 SUITES=$( xargs -a testplan.txt )
 
+echo "Versioning information:"
+python3 --version
+pip3 freeze
+python3 -m robot.run --version || :
+
 echo ROBOT_VARIABLES="${ROBOT_VARIABLES}"
 echo "Starting Robot test suites ${SUITES} ..."
 relax_set
-python3 -m robot.run -N ${TESTPLAN} -v WORKSPACE:/tmp ${ROBOT_VARIABLES} ${TESTOPTIONS} ${SUITES}
+python3 -m robot.run -N "${TESTPLAN}" -v WORKSPACE:/tmp "${ROBOT_VARIABLES}" "${TESTOPTIONS}" "${SUITES}"
 RESULT=$?
 load_set
 echo "RESULT: $RESULT"
