@@ -65,6 +65,30 @@ fi
 # functions
 #
 
+function on_exit {
+    rc=$?
+    if [[ ${WORKSPACE} ]]; then
+        if [[ ${WORKDIR} ]]; then
+            rsync -av "$WORKDIR/" "$WORKSPACE/archives/$TESTPLAN"
+        fi
+        # Record list of active docker containers
+        docker ps --format "{{.Image}}" > "$WORKSPACE/archives/$TESTPLAN/_docker-images.log"
+
+        # show memory consumption after all docker instances initialized
+        docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-2-after-robot.txt"
+    fi
+    # Run teardown script plan if it exists
+    cd "${TESTPLANDIR}"
+    TEARDOWN="${TESTPLANDIR}/teardown.sh"
+    if [[ -f "${TEARDOWN}" ]]; then
+        echo "Running teardown script ${TEARDOWN}"
+        source_safely "${TEARDOWN}"
+    fi
+    exit $rc
+}
+# ensure that teardown and other finalizing steps are always executed
+trap on_exit EXIT
+
 # load the saved set options
 function load_set {
     _setopts="$-"
@@ -112,30 +136,6 @@ function source_safely {
         load_set
     fi
 }
-
-function on_exit {
-    rc=$?
-    if [[ ${WORKSPACE} ]]; then
-        if [[ ${WORKDIR} ]]; then
-            rsync -av "$WORKDIR/" "$WORKSPACE/archives/$TESTPLAN"
-        fi
-        # Record list of active docker containers
-        docker ps --format "{{.Image}}" > "$WORKSPACE/archives/$TESTPLAN/_docker-images.log"
-
-        # show memory consumption after all docker instances initialized
-        docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-2-after-robot.txt"
-    fi
-    # Run teardown script plan if it exists
-    cd "${TESTPLANDIR}"
-    TEARDOWN="${TESTPLANDIR}/teardown.sh"
-    if [[ -f "${TEARDOWN}" ]]; then
-        echo "Running teardown script ${TEARDOWN}"
-        source_safely "${TEARDOWN}"
-    fi
-    exit $rc
-}
-# ensure that teardown and other finalizing steps are always executed
-trap on_exit EXIT
 
 function docker_stats {
     #General memory details
@@ -227,7 +227,7 @@ python3 --version
 pip freeze
 python3 -m robot.run --version || :
 
-python -m robot.run -N "${TESTPLAN}" -v WORKSPACE:/tmp "${ROBOT_VARIABLES}" "${TESTOPTIONS}" "${SUITES}"
+python3 -m robot.run -N "${TESTPLAN}" -v WORKSPACE:/tmp "${ROBOT_VARIABLES}" "${TESTOPTIONS}" "${SUITES}"
 RESULT=$?
 load_set
 echo "RESULT: $RESULT"
