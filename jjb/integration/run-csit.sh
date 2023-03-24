@@ -194,8 +194,8 @@ python3 -m robot.run --version || :
 echo ROBOT_VARIABLES="${ROBOT_VARIABLES}"
 echo "Starting Robot test suites ${SUITES} ..."
 relax_set
-# Do NOT quote ROBOT_VARIABLES below; this breaks testing
-python3 -m robot.run -N "${TESTPLAN}" -v WORKSPACE:/tmp ${ROBOT_VARIABLES} "${TESTOPTIONS}" "${SUITES}"
+# Do NOT quote variables below, it breaks testing
+python3 -m robot.run -N ${TESTPLAN} -v WORKSPACE:/tmp ${ROBOT_VARIABLES} ${TESTOPTIONS} ${SUITES}
 RESULT=$?
 load_set
 echo "RESULT: $RESULT"
