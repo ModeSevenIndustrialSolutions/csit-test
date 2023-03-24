@@ -161,9 +161,6 @@ TESTPLANDIR="${WORKSPACE}/${TESTPLAN}"
 # Run installation of required libraries
 source_safely "${WORKSPACE}/prepare-csit.sh"
 
-WORKDIR=$(mktemp -d --suffix=-robot-workdir)
-cd "${WORKDIR}"
-
 # Python version should match that used to setup
 #  robot-framework in other jobs/stages
 # Use pyenv for selecting the python version
@@ -180,6 +177,24 @@ if [[ -d "/opt/pyenv" ]]; then
         pyenv local "${version}"
     fi
 fi
+
+# Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
+# source_safely "${ROBOT3_VENV}/bin/activate"
+
+# Assume that if ROBOT3_VENV is set, virtualenv
+#  with system site packages can be activated
+if [[ -f "${WORKSPACE}/env.properties" ]]; then
+    source "${WORKSPACE}/env.properties"
+elif [[ -f /tmp/env.properties ]]; then
+    source /tmp/env.properties
+fi
+
+if [[ -f "${ROBOT3_VENV}/bin/activate" ]]; then
+    source "${ROBOT3_VENV}/bin/activate"
+fi
+
+WORKDIR=$(mktemp -d --suffix=-robot-workdir)
+cd "${WORKDIR}"
 
 # Add csit scripts to PATH
 export PATH="${PATH}:${WORKSPACE}/docker/scripts:${WORKSPACE}/scripts:${ROBOT3_VENV}/bin"
@@ -199,21 +214,6 @@ fi
 
 # show memory consumption after all docker instances initialized
 docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-1-after-setup.txt"
-
-# Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
-# source_safely "${ROBOT3_VENV}/bin/activate"
-
-# Assume that if ROBOT3_VENV is set, virtualenv
-#  with system site packages can be activated
-if [[ -f "${WORKSPACE}/env.properties" ]]; then
-    source "${WORKSPACE}/env.properties"
-elif [[ -f /tmp/env.properties ]]; then
-    source /tmp/env.properties
-fi
-
-if [[ -f "${ROBOT3_VENV}/bin/activate" ]]; then
-    source "${ROBOT3_VENV}/bin/activate"
-fi
 
 # Run test plan
 cd "$WORKDIR"
