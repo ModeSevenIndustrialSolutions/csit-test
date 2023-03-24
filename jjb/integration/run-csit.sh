@@ -214,8 +214,7 @@ docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-1-after-setup.txt"
 # Run test plan
 cd "$WORKDIR"
 echo "Reading the testplan:"
-grep -E -v '(^[[:space:]]*#|^[[:space:]]*$)' "${TESTPLANDIR}/testplan.txt" |\
-    sed "s|^|${WORKSPACE}/tests/|" > testplan.txt
+cat "${TESTPLANDIR}/testplan.txt" | egrep -v '(^[[:space:]]*#|^[[:space:]]*$)' | sed "s|^|${WORKSPACE}/tests/|" > testplan.txt
 cat testplan.txt
 SUITES=$( xargs -a testplan.txt )
 
