@@ -161,9 +161,6 @@ TESTPLANDIR="${WORKSPACE}/${TESTPLAN}"
 # Run installation of required libraries
 source_safely "${WORKSPACE}/prepare-csit.sh"
 
-# Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
-source_safely "${ROBOT3_VENV}/bin/activate"
-
 WORKDIR=$(mktemp -d --suffix=-robot-workdir)
 cd "${WORKDIR}"
 
@@ -203,6 +200,9 @@ fi
 # show memory consumption after all docker instances initialized
 docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-1-after-setup.txt"
 
+# Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
+source_safely "${ROBOT3_VENV}/bin/activate"
+
 # Run test plan
 cd "$WORKDIR"
 echo "Reading the testplan:"
@@ -216,7 +216,7 @@ relax_set
 
 echo "Versioning information:"
 python3 --version
-pip freeze
+pip3 freeze
 python3 -m robot.run --version || :
 
 python3 -m robot.run -N "${TESTPLAN}" -v WORKSPACE:/tmp "${ROBOT_VARIABLES}" "${TESTOPTIONS}" "${SUITES}"
