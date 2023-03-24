@@ -1,7 +1,7 @@
 #!/bin/bash -x
 #
 # Copyright 2016-2017 Huawei Technologies Co., Ltd.
-# Modification Copyright 2019 © Samsung Electronics Co., Ltd.
+# Modification Copyright 2019 Samsung Electronics Co., Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ echo "---> run-csit.sh"
 # functions
 #
 
-function on_exit(){
+function on_exit {
     rc=$?
     if [[ ${WORKSPACE} ]]; then
         if [[ ${WORKDIR} ]]; then
@@ -44,12 +44,12 @@ function on_exit(){
         source_safely "${TEARDOWN}"
     fi
     # TODO: do something with the output
-     exit $rc
+    exit $rc
 }
 # ensure that teardown and other finalizing steps are always executed
 trap on_exit EXIT
 
-function docker_stats(){
+function docker_stats {
     #General memory details
     echo "> top -bn1 | head -3"
     top -bn1 | head -3
@@ -70,13 +70,13 @@ function docker_stats(){
 }
 
 # save current set options
-function save_set() {
+function save_set {
     RUN_CSIT_SAVE_SET="$-"
     RUN_CSIT_SHELLOPTS="$SHELLOPTS"
 }
 
 # load the saved set options
-function load_set() {
+function load_set {
     _setopts="$-"
 
     # bash shellopts
@@ -95,20 +95,20 @@ function load_set() {
 }
 
 # set options for quick bailout when error
-function harden_set() {
+function harden_set {
     set -xeo pipefail
     set +u # enabled it would probably fail too many often
 }
 
 # relax set options so the sourced file will not fail
 # the responsibility is shifted to the sourced file...
-function relax_set() {
+function relax_set {
     set +e
     set +o pipefail
 }
 
 # wrapper for sourcing a file
-function source_safely() {
+function source_safely {
     [ -z "$1" ] && return 1
     relax_set
     . "$1"
@@ -122,8 +122,7 @@ function source_safely() {
 # set and save options for quick failure
 harden_set && save_set
 
-if [ $# -eq 0 ]
-then
+if [ $# -eq 0 ]; then
     echo
     echo "Usage: $0 plans/<project>/<functionality> [<robot-options>]"
     echo
@@ -151,7 +150,7 @@ mkdir -p "$WORKSPACE/archives/$TESTPLAN"
 
 TESTPLANDIR="${WORKSPACE}/${TESTPLAN}"
 
-# Run installation of prerequired libraries
+# Run installation of required libraries
 source_safely "${WORKSPACE}/prepare-csit.sh"
 
 # Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
