@@ -1,0 +1,75 @@
+---
+- project:
+    name: so-so-etsi-nfvo-project-view
+    project-name: so-so-etsi-nfvo
+    views:
+      - project-view
+
+- project:
+    name: so-so-etsi-nfvo-info
+    project: so/so-etsi-nfvo
+    project-name: so-so-etsi-nfvo
+    build-node: centos7-builder-2c-1g
+    jobs:
+      - gerrit-info-yaml-verify
+
+- project:
+    name: so-so-etsi-nfvo
+    project-name: 'so-so-etsi-nfvo'
+    jobs:
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - gerrit-maven-stage:
+          sign-artifacts: true
+          build-node: centos7-builder-4c-4g
+          maven-versions-plugin: true
+      - gerrit-maven-docker-stage:
+          build-node: ubuntu1804-docker-v1-8c-8g
+          maven-versions-plugin: true
+          mvn-params: '-P docker -DskipTests'
+          container-public-registry: 'nexus3.onap.org:10001'
+          container-staging-registry: 'nexus3.onap.org:10003'
+      - '{project-name}-gerrit-release-jobs':
+          build-node: centos7-docker-8c-8g
+    project: 'so/so-etsi-nfvo'
+    stream:
+      - 'master':
+          branch: 'master'
+          java-version: openjdk11
+    mvn-settings: 'so-so-etsi-nfvo-settings'
+    files: '**'
+    archive-artifacts: ''
+    build-node: ubuntu1804-docker-v1-8c-8g
+
+- project:
+    name: so-so-etsi-nfvo-sonar
+    java-version: openjdk11
+    jobs:
+      - gerrit-maven-sonar
+    sonarcloud: true
+    sonarcloud-project-organization: '{sonarcloud_project_organization}'
+    sonarcloud-project-key: '{sonarcloud_project_organization}_{project-name}'
+    sonar-mvn-goal: '{sonar_mvn_goal}'
+    cron: '@daily'
+    max-git-repo-age-hours: 48
+    build-node: ubuntu1804-docker-v1-8c-8g
+    project: 'so/so-etsi-nfvo'
+    project-name: 'so-so-etsi-nfvo'
+    branch: 'master'
+    mvn-settings: 'so-so-etsi-nfvo-settings'
+    mvn-goals: 'clean install'
+    mvn-opts: '-Xmx1024m -XX:MaxPermSize=256m'
+
+- project:
+    name: so-so-etsi-nfvo-clm
+    java-version: openjdk11
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: 'so/so-etsi-nfvo'
+    project-name: 'so-so-etsi-nfvo'
+    build-node: ubuntu1804-docker-v1-8c-8g
+    stream:
+      - 'master':
+          branch: 'master'
+    mvn-settings: 'so-so-etsi-nfvo-settings'

@@ -1,0 +1,13 @@
+#!/bin/bash
+until host github.com &>/dev/null
+do
+    echo "Waiting until github.com is resolvable..."
+done
+git clone https://github.com/lfit/releng-global-jjb.git /opt/ciman/global-jjb
+/opt/ciman/global-jjb/jenkins-init-scripts/init.sh
+
+IPADDR=$(facter ipaddress)
+HOSTNAME=$(facter hostname)
+FQDN=$(facter fqdn)
+
+echo "^${IPADDR} ^${HOSTNAME} ^${FQDN}" >> /etc/hosts

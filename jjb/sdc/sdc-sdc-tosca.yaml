@@ -1,0 +1,78 @@
+---
+- project:
+    name: sdc-sdc-tosca-project-view
+    project-name: sdc-sdc-tosca
+    views:
+      - project-view
+    java-version: openjdk11
+
+- project:
+    name: sdc-sdc-tosca
+    project-name: 'sdc-sdc-tosca'
+    jobs:
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - gerrit-maven-stage:
+          sign-artifacts: true
+          sbom-generator: true
+          build-node: centos7-builder-4c-4g
+          maven-versions-plugin: true
+      - '{project-name}-gerrit-release-jobs':
+          build-node: centos7-docker-8c-8g
+
+    project: 'sdc/sdc-tosca'
+    stream:
+      - 'master':
+          branch: 'master'
+      - 'jakarta':
+          branch: 'jakarta'
+      - 'kohn':
+          branch: 'kohn'
+    mvn-settings: 'sdc-sdc-tosca-settings'
+    files: '**'
+    archive-artifacts: ''
+    build-timeout: 60
+    maven-version: 'mvn36'
+    java-version: openjdk11
+
+- project:
+    name: sdc-sdc-tosca-sonar
+    jobs:
+      - gerrit-maven-sonar
+    sonarcloud: true
+    sonarcloud-project-organization: '{sonarcloud_project_organization}'
+    sonarcloud-project-key: '{sonarcloud_project_organization}_{project-name}'
+    sonar-mvn-goal: '{sonar_mvn_goal}'
+    cron: '@daily'
+    build-node: ubuntu1804-builder-4c-4g
+    project: 'sdc/sdc-tosca'
+    project-name: 'sdc-sdc-tosca'
+    branch: 'master'
+    mvn-settings: 'sdc-sdc-tosca-settings'
+    mvn-params: '-Dsonar.branch={branch}'
+    mvn-goals: 'clean install'
+    mvn-opts: '-Xmx1024m'
+    java-version: openjdk11
+
+- project:
+    name: sdc-sdc-tosca-clm
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: sdc/sdc-tosca
+    project-name: 'sdc-sdc-tosca'
+    stream:
+      - 'master':
+          branch: 'master'
+    mvn-settings: 'sdc-sdc-tosca-settings'
+    java-version: openjdk11
+
+- project:
+    name: sdc-sdc-tosca-info
+    project-name: sdc-sdc-tosca
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos7-builder-2c-1g
+    project: sdc/sdc-tosca
+    branch: master
+    java-version: openjdk11

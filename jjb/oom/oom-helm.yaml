@@ -1,0 +1,60 @@
+---
+- project:
+    name: oom
+    project-name: oom
+    project: oom
+    archive-artifacts: ""
+    mvn-settings: oom-settings
+    mvn-global-settings: global-settings
+    build-node: ubuntu1804-helm-2c-1g
+    helm_bin: helm3.8
+    pre_build_script: !include-raw-escape: shell/helm/helm-repo-init.sh
+
+    stream:
+      - "master":
+          branch: "master"
+      - "kohn":
+          branch: "kohn"
+      - "jakarta":
+          branch: "jakarta"
+
+    jobs:
+      - "{project-name}-{stream}-image-verify":
+          files: "**"
+      - "{project-name}-{stream}-verify-{helm_bin}":
+          build_script: !include-raw-escape: shell/helm/make-helm-all.sh
+          files: "**/kubernetes/**"
+          build-timeout: 900
+      - "{project-name}-{stream}-merge-helm":
+          build_type: snapshot
+          build_script: !include-raw-escape: shell/helm/make-helm-all.sh
+          post_build_script: !include-raw-escape: shell/helm/publish_helm_charts.sh
+          files: "**/kubernetes/**"
+          build-timeout: 900
+      - "{project-name}-{stream}-release-helm":
+          build_type: release
+          build_script: !include-raw-escape: shell/helm/make-helm-skip-lint.sh
+          post_build_script: !include-raw-escape: shell/helm/publish_helm_charts.sh
+          files: "**/kubernetes/**"
+          build-timeout: 900
+
+- project:
+    name: oom-helm-verify-make-latest
+    project-name: oom
+    project: oom
+    archive-artifacts: ""
+    build-node: ubuntu1804-helm-2c-1g
+    helm_bin: helm3.10.2
+    pre_build_script: !include-raw-escape: shell/helm/helm-repo-init.sh
+
+    stream:
+      - "master":
+          branch: "master"
+      - "kohn":
+          branch: "kohn"
+
+    jobs:
+      - "{project-name}-{stream}-verify-make-{helm_bin}":
+          build_script: !include-raw-escape: shell/helm/make-helm-skip-lint.sh
+          files: "**/kubernetes/**"
+          build-timeout: 900

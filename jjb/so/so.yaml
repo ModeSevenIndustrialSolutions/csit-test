@@ -1,0 +1,125 @@
+---
+- project:
+    name: so-project-view
+    project-name: so
+    java-version: openjdk11
+    views:
+      - project-view
+
+- project:
+    name: so
+    project-name: 'so'
+    jobs:
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - gerrit-maven-stage:
+          sign-artifacts: true
+          build-node: centos7-builder-4c-4g
+          maven-versions-plugin: true
+      - gerrit-maven-docker-stage:
+          build-node: ubuntu1804-docker-v1-8c-8g
+          maven-versions-plugin: true
+          mvn-params: '-P docker -DskipTests'
+          container-public-registry: 'nexus3.onap.org:10001'
+          container-staging-registry: 'nexus3.onap.org:10003'
+      - '{project-name}-gerrit-release-jobs':
+          build-node: centos7-docker-8c-8g
+    project: 'so'
+    stream:
+      - 'master':
+          branch: 'master'
+          java-version: openjdk11
+      - 'jakarta':
+          branch: 'jakarta'
+          java-version: openjdk11
+      - 'kohn':
+          branch: 'kohn'
+          java-version: openjdk11
+      - 'recursive-orch':
+          branch: 'recursive-orch'
+          java-version: openjdk11
+    mvn-settings: 'so-settings'
+    files: '**'
+    archive-artifacts: ''
+    build-node: ubuntu1804-docker-v1-8c-8g
+
+- project:
+    name: so-sonar
+    java-version: openjdk11
+    jobs:
+      - gerrit-maven-sonar
+    sonarcloud: true
+    sonarcloud-project-organization: '{sonarcloud_project_organization}'
+    sonarcloud-project-key: '{sonarcloud_project_organization}_{project-name}'
+    sonar-mvn-goal: '{sonar_mvn_goal}'
+    cron: '@daily'
+    max-git-repo-age-hours: 48
+    build-node: ubuntu1804-docker-v1-8c-8g
+    project: 'so'
+    project-name: 'so'
+    branch: 'master'
+    mvn-settings: 'so-settings'
+    mvn-goals: 'clean install'
+    mvn-opts: '-Xmx1024m -XX:MaxPermSize=256m'
+
+- project:
+    name: 'so-coverity'
+    java-version: openjdk11
+    jobs:
+      - 'onap-gerrit-maven-coverity'
+    cron: '@daily'
+    build-node: 'ubuntu1804-docker-v1-8c-8g'
+    project: 'so'
+    project-name: 'so'
+    branch: 'master'
+    mvn-settings: 'so-settings'
+    mvn-params: '-DskipTests'
+    mvn-opts: '-Xmx1024m -XX:MaxPermSize=256m'
+    coverity-project-name: 'onap-so'
+    coverity-token: 'SrGGJp9T1n1lhJn2sF72XQ'
+    coverity-user-email: 'A.Naluzhnyy@samsung.com'
+    coverity-search-paths: >
+      so-monitoring/so-monitoring-ui/src/main/frontend/src
+    coverity-search-exclude-regexs: >
+      /cov-int/
+      /cov-analysis-
+      ^/usr/
+      ^/home/
+      /node_modules/
+      /bower_components/
+      /bower_components_external/
+      /src/test/
+      /__test__/
+
+- project:
+    name: so-clm
+    java-version: openjdk11
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: so
+    project-name: 'so'
+    build-node: ubuntu1804-docker-v1-8c-8g
+    stream:
+      - 'master':
+          branch: 'master'
+    mvn-settings: 'so-settings'
+
+- project:
+    name: so-info
+    project-name: so
+    java-version: openjdk11
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos7-builder-2c-1g
+    project: so
+    stream:
+      - 'master':
+          branch: 'master'
+          java-version: openjdk11
+      - 'jakarta':
+          branch: 'jakarta'
+          java-version: openjdk11
+      - 'kohn':
+          branch: 'kohn'
+          java-version: openjdk11

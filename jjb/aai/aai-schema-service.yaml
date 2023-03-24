@@ -1,0 +1,81 @@
+---
+- project:
+    name: aai-schema-service-project-view
+    project-name: aai-schema-service
+    views:
+      - project-view
+
+- project:
+    name: aai-schema-service
+    project-name: 'aai-schema-service'
+    jobs:
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - gerrit-maven-stage:
+          sign-artifacts: true
+          build-node: centos7-builder-4c-4g
+          maven-versions-plugin: true
+          sbom-generator: true
+      - gerrit-maven-docker-stage:
+          mvn-params: '-P docker -Dmaven.test.skip=true'
+          build-node: ubuntu1804-docker-8c-8g
+          container-public-registry: 'nexus3.onap.org:10001'
+          container-staging-registry: 'nexus3.onap.org:10003'
+      - '{project-name}-gerrit-release-jobs':
+          build-node: centos7-docker-8c-8g
+    project: 'aai/schema-service'
+    stream:
+      - 'master':
+          branch: 'master'
+      - 'kohn':
+          branch: 'kohn'
+      - 'jakarta':
+          branch: 'jakarta'
+    mvn-settings: 'aai-schema-service-settings'
+    mvn-version: 'mvn36'
+    files: '**'
+    archive-artifacts: ''
+    build-node: ubuntu1804-builder-4c-4g
+    java-version: openjdk11
+
+- project:
+    name: aai-schema-service-sonar
+    jobs:
+      - gerrit-maven-sonar
+    sonarcloud: true
+    sonarcloud-project-organization: '{sonarcloud_project_organization}'
+    sonarcloud-project-key: '{sonarcloud_project_organization}_{project-name}'
+    sonar-mvn-goal: '{sonar_mvn_goal}'
+    cron: '@daily'
+    build-node: ubuntu1804-builder-4c-4g
+    java-version: openjdk11
+    project: 'aai/schema-service'
+    project-name: 'aai-schema-service'
+    branch: 'master'
+    mvn-settings: 'aai-schema-service-settings'
+    mvn-goals: 'clean install'
+    mvn-opts: '-Xmx1024m -XX:MaxPermSize=256m'
+    mvn-version: 'mvn36'
+
+- project:
+    name: aai-schema-service-clm
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: 'aai/schema-service'
+    project-name: 'aai-schema-service'
+    java-version: openjdk11
+    stream:
+        - 'master':
+              branch: 'master'
+    mvn-settings: 'aai-schema-service-settings'
+    mvn-version: 'mvn36'
+
+- project:
+    name: aai-schema-service-info
+    project-name: aai-schema-service
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos8-builder-2c-1g
+    project: aai/schema-service
+    branch: master

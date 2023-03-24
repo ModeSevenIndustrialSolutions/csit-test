@@ -1,0 +1,26 @@
+---
+- project:
+    name: integration-csit
+    jobs:
+      - '{project-name}-{stream}-verify-csit-{functionality}'
+      - '{project-name}-{stream}-csit-{functionality}'
+    project-name: 'integration'
+    recipients: 'morgan.richomm@orange.com bf1936@att.com'
+    stream:
+      - 'master':
+          branch: 'master'
+    functionality:
+      - 'functionality1':
+          trigger_jobs:
+      - 'vCPE':
+          trigger_jobs:
+    robot-options: ''
+
+- project:
+    name: integration-csit-info
+    project-name: integration-csit
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos8-builder-2c-1g
+    project: integration/csit
+    branch: master

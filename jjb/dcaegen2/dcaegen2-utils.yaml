@@ -1,0 +1,99 @@
+---
+- project:
+    name: dcaegen2-utils
+    project-name: 'dcaegen2-utils'
+    python-version: python3
+
+    jobs:
+      - gerrit-maven-verify:
+          pre-build-script: !include-raw-escape: ../../shell/onap-gerrit-review-wrapper.sh
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - '{project-name}-{stream}-release-version-java-daily'
+    project: 'dcaegen2/utils'
+    stream:
+      - 'master':
+          branch: 'master'
+      - 'kohn':
+          branch: 'kohn'
+    mvn-settings: 'dcaegen2-utils-settings'
+    mvn-snapshot-id: 'ecomp-snapshots'
+    nexus-snapshot-repo: 'snapshots'
+    # due to a strange macro / variable translation problem this needs
+    # to be passed as a string block to properly get the properties
+    # correctly defined in the job
+    maven-deploy-properties: |
+      deployAtEnd=true
+    files: '**'
+    archive-artifacts: ''
+    build-node: 'ubuntu1804-docker-8c-8g'
+
+- project:
+    name: dcaegen2-utils-sonar
+    jobs:
+      - gerrit-maven-sonar
+    sonarcloud: true
+    sonarcloud-project-organization: '{sonarcloud_project_organization}'
+    sonarcloud-project-key: '{sonarcloud_project_organization}_{project-name}'
+    sonar-mvn-goal: '{sonar_mvn_goal}'
+    cron: '@daily'
+    build-node: ubuntu1804-docker-8c-8g
+    project: 'dcaegen2/utils'
+    project-name: 'dcaegen2-utils'
+    branch: 'master'
+    mvn-settings: 'dcaegen2-utils-settings'
+    mvn-goals: 'clean install'
+    mvn-opts: '-Xmx1024m -XX:MaxPermSize=256m'
+
+- project:
+    name: dcaegen2-utils-clm
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: dcaegen2/utils
+    build-node: ubuntu1804-docker-8c-8g
+    project-name: 'dcaegen2-utils'
+    branch: 'master'
+    mvn-settings: 'dcaegen2-utils-settings'
+
+- project:
+    name: dcaegen2-utils-info
+    project-name: dcaegen2-utils
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos7-builder-2c-1g
+    project: dcaegen2/utils
+    branch: master
+
+- cbs_client_pypi_common: &cbs_client_pypi_common
+    name: cbs-client-pypi-common
+    # jenkins job prefix
+    project-name: dcaegen2-platform-cbs-client
+    # git repo
+    project: dcaegen2/utils
+    # push credentials
+    mvn-settings: dcaegen2-utils-settings
+    # requires centos to sign release
+    build-node: centos7-builder-2c-1g
+    tox-dir: onap-dcae-cbs-docker-client
+    stream:
+      - master:
+          branch: master
+
+- project:
+    name: dcaegen2-platform-cbs-client-pypi-build
+    <<: *cbs_client_pypi_common
+    gerrit_trigger_file_paths:
+      - compare-type: REG_EXP
+        pattern: 'onap-dcae-cbs-docker-client/{name}/.*'
+    jobs:
+      - gerrit-pypi-verify
+      - gerrit-pypi-merge:
+          pypi-repo: pypi-test
+
+- project:
+    name: dcaegen2-platform-cbs-client-pypi-release
+    <<: *cbs_client_pypi_common
+    jobs:
+      - gerrit-pypi-release-verify
+      - gerrit-pypi-release-merge

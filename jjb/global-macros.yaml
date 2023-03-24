@@ -1,0 +1,511 @@
+---
+# Global macros
+
+# vim: sw=2 ts=2 sts=2 et :
+
+# BUILDERS
+- builder:
+    name: provide-maven-settings
+    builders:
+      - config-file-provider:
+          files:
+            - file-id: '{global-settings-file}'
+              variable: 'GLOBAL_SETTINGS_FILE'
+            - file-id: '{settings-file}'
+              variable: 'SETTINGS_FILE'
+
+# call maven-target builder with a goal of --version to force Jenkins to
+# install the needed maven version
+- builder:
+    name: maven-install
+    builders:
+      - maven-target:
+          maven-version: '{maven-version}'
+          goals: '--version'
+
+- builder:
+    name: maven-set-release-version
+    builders:
+      - maven-target:
+          maven-version: '{maven-version}'
+          pom: '{pom}'
+          goals: 'versions:set versions:update-child-modules versions:commit -B'
+          properties:
+            - 'newVersion=${{release_version}}'
+          settings: '{mvn-settings}'
+          settings-type: cfp
+          global-settings: 'global-settings'
+          global-settings-type: cfp
+
+- builder:
+    name: maven-docker-push-release
+    builders:
+      - maven-target:
+          maven-version: '{maven-version}'
+          pom: '{pom}'
+          goals: 'clean deploy -B -P {mvn-profile}'
+          settings: '{mvn-settings}'
+          settings-type: cfp
+          global-settings: 'global-settings'
+          global-settings-type: cfp
+          properties:
+            - maven.test.skip=true
+            - docker.pull.registry=nexus3.onap.org:10001
+            - docker.push.registry=nexus3.onap.org:10002
+
+- builder:
+    name: maven-docker-push-daily
+    builders:
+      - maven-target:
+          maven-version: '{maven-version}'
+          pom: '{pom}'
+          goals: 'clean deploy -B -P {mvn-profile} {mvn-params}'
+          settings: '{mvn-settings}'
+          settings-type: cfp
+          global-settings: 'global-settings'
+          global-settings-type: cfp
+          properties:
+            - docker.pull.registry=nexus3.onap.org:10001
+            - docker.push.registry=nexus3.onap.org:10003
+
+- builder:
+    name: docker-login
+    builders:
+      - shell: !include-raw: include-docker-login.sh
+
+- builder:
+    name: publish-pypi
+    builders:
+      - inject:
+          properties-content: PYPI_SERVER={pypi-server}
+      - shell:
+          !include-raw-escape: ../shell/pypi-publish.sh
+
+# PARAMETERS
+- parameter:
+    name: infra-parameters
+    parameters:
+      - string:
+          name: PROJECT
+          default: '{project}'
+          # yamllint disable rule:line-length
+          description: 'JJB configured PROJECT parameter to identify a Gerrit project'
+          # yamllint enable
+      - string:
+          name: ARCHIVE_ARTIFACTS
+          default: '{artifacts} **/target/surefire-reports/*-output.txt'
+          # yamllint disable rule:line-length
+          description: 'Space separated glob patterns for artifacts to archive to logs hosting'
+          # yamllint enable
+      - string:
+          name: GERRIT_BRANCH
+          default: '{branch}'
+          description: 'JJB configured GERRIT_BRANCH parameter'
+      - string:
+          name: GERRIT_PROJECT
+          default: '{project}'
+          description: 'GERRIT_PROJECT parameter if not given by trigger'
+      - string:
+          name: GERRIT_REFSPEC
+          default: '{refspec}'
+          description: 'GERRIT_REFSPEC parameter if not given by trigger'
+      - string:
+          name: STACK_NAME
+          default: '$JOB_NAME-$BUILD_NUMBER'
+          description: 'Used by Heat to generate a unique stack & vm name'
+
+- parameter:
+    name: maven-params
+    parameters:
+      - string:
+          name: MAVEN_PARAMS
+          default: '{mvn-params}'
+          description: Maven parameters to pass to the mvn command.
+
+- parameter:
+    name: maven-exec
+    parameters:
+      - string:
+          name: MVN
+          # yamllint disable rule:line-length
+          default: '/w/tools/hudson.tasks.Maven_MavenInstallation/{maven-version}/bin/mvn'
+          # yamllint enable
+          description: 'Maven selector to be used by shell scripts'
+
+- parameter:
+    name: docker-image-name
+    parameters:
+      - string:
+          name: DOCKER_IMAGE_NAME
+          # yamllint disable rule:line-length
+          default: '{docker-image-name}'
+          # yamllint enable
+          description: 'Docker image name, e.g. onap/appc'
+
+# PROPERTIES
+- property:
+    name: infra-properties
+    properties:
+      - build-discarder:
+          days-to-keep: '{build-days-to-keep}'
+          num-to-keep: 40
+          artifact-days-to-keep: -1
+          artifact-num-to-keep: 5
+
+# PUBLISHERS
+- publisher:
+    name: archive-artifacts
+    publishers:
+      - archive:
+          artifacts: '{artifacts}'
+          allow-empty: true
+          fingerprint: true
+          latest-only: true
+
+- publisher:
+    name: email-notification
+    publishers:
+      - email-ext:
+          recipients: 'nobody@open-o.org'
+          reply-to:
+          content-type: default
+          # yamllint disable rule:line-length
+          subject: '{email-prefix} $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!'
+          # yamllint enable
+          body: |
+            $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+            Check console output at $BUILD_URL to view the results.
+          unstable: true
+          fixed: true
+          send-to:
+            - developers
+            - recipients
+
+- publisher:
+    name: jacoco-report
+    publishers:
+      - jacoco:
+          exec-pattern: '**/**.exec'
+          class-pattern: '**/classes'
+          source-pattern: '**/src/main/java'
+          # yamllint disable rule:line-length
+          exclusion-pattern: '**/gen**,**/generated-sources/**,**/yang-gen**,**/pax/**'
+          # yamllint enable
+          status-update: true
+          targets:
+            - branch:
+                healthy: 10
+                unhealthy: 20
+            - method:
+                healthy: 50
+                unhealthy: 40
+
+- publisher:
+    name: checkstyle-result
+    publishers:
+      - checkstyle:
+          pattern: '**/checkstyle-result.xml'
+          healthy: 0
+          unhealthy: 100
+          health-threshold: 'high'
+          thresholds:
+            unstable:
+              total-all: 30
+              total-high: 15
+              total-normal: 20
+              total-low: 25
+              new-all: 5
+              new-high: 0
+              new-normal: 2
+              new-low: 5
+
+- publisher:
+    name: checkstyle-result-daily
+    publishers:
+      - checkstyle:
+          pattern: '**/checkstyle-result.xml'
+          healthy: 0
+          unhealthy: 100
+          health-threshold: 'high'
+          thresholds:
+            unstable:
+              total-all: 30
+              total-high: 15
+              total-normal: 20
+              total-low: 25
+              new-all: 1
+              new-high: 0
+              new-normal: 1
+              new-low: 1
+
+# SCMS
+- scm:
+    name: git-scm
+    scm:
+      - git:
+          credentials-id: 'onap-jenkins-ssh'
+          url: '$GIT_BASE'
+          refspec: ''
+          branches:
+            - 'origin/{branch}'
+          skip-tag: true
+          wipe-workspace: true
+          timeout: 30
+
+- scm:
+    name: gerrit-trigger-scm
+    scm:
+      - git:
+          credentials-id: 'onap-jenkins-ssh'
+          url: '$GIT_BASE'
+          refspec: '{refspec}'
+          branches:
+            - 'origin/$GERRIT_BRANCH'
+          skip-tag: true
+          timeout: 30
+          choosing-strategy: '{choosing-strategy}'
+          submodule:
+            recursive: '{submodule-recursive}'
+
+- scm:
+    name: gerrit-trigger-scm-basedir
+    scm:
+      - git:
+          credentials-id: 'onap-jenkins-ssh'
+          url: '$GIT_BASE'
+          refspec: '{refspec}'
+          branches:
+            - 'origin/$GERRIT_BRANCH'
+          skip-tag: true
+          timeout: 30
+          choosing-strategy: '{choosing-strategy}'
+          basedir: '{basedir}'
+
+- scm:
+    name: git-branch-scm
+    scm:
+      - git:
+          credentials-id: 'onap-jenkins-ssh'
+          url: '$GIT_BASE'
+          refspec: ''
+          branches:
+            - 'origin/{branch}'
+          skip-tag: true
+          timeout: 30
+          wipe-workspace: true
+
+- scm:
+    name: git-extra-project
+    scm:
+      - git:
+          credentials-id: 'onap-jenkins-ssh'
+          url: '$GIT_NO_PROJECT/{project}'
+          refspec: '{refspec}'
+          branches:
+            - 'origin/{branch}'
+          skip-tag: true
+          timeoute: 30
+          wipe-workspace: false
+          basedir: '{checkout-dir}'
+
+# TRIGGERS
+
+# This is a single macro to use for all jobs who vote on every (relevant) patch
+# set. Only 'recheck' trigger word is supported, it always triggers the full set
+# of relevant jobs, in order to prevent Jenkins from starting only a subset and
+# still voting Verified+1
+# Arguments:
+#     server: name of gerrit server to listen to
+#     project: pattern to match triggering projects
+#     branch: triggering branch name
+#     files: pattern to match triggering filepaths
+- trigger:
+    name: gerrit-trigger-patch-submitted
+    triggers:
+      - gerrit:
+          server-name: '{server}'
+          trigger-on:
+            - patchset-created-event:
+                exclude-drafts: 'false'
+                exclude-trivial-rebase: 'false'
+                exclude-no-code-change: 'false'
+            - draft-published-event
+            - comment-added-contains-event:
+                comment-contains-value: 'recheck'
+          projects:
+            - project-compare-type: 'ANT'
+              project-pattern: '{project}'
+              branches:
+                - branch-compare-type: 'ANT'
+                  branch-pattern: '**/{branch}'
+              file-paths:
+                - compare-type: 'ANT'
+                  pattern: '{files}'
+
+- trigger:
+    name: gerrit-trigger-patch-merged
+    triggers:
+      - gerrit:
+          server-name: '{server}'
+          trigger-on:
+            - change-merged-event
+            - comment-added-contains-event:
+                comment-contains-value: 'remerge'
+          projects:
+            - project-compare-type: 'ANT'
+              project-pattern: '{project}'
+              branches:
+                - branch-compare-type: 'ANT'
+                  branch-pattern: '**/{branch}'
+              file-paths:
+                - compare-type: 'ANT'
+                  pattern: '{files}'
+
+- trigger:
+    name: gerrit-trigger-helm-patch-submitted
+    triggers:
+      - gerrit:
+          server-name: '{server}'
+          trigger-on:
+            - patchset-created-event:
+                exclude-drafts: 'false'
+                exclude-no-code-change: 'false'
+                exclude-trivial-rebase: 'false'
+                exclude-wip: 'true'
+            - draft-published-event
+            - comment-added-contains-event:
+                comment-contains-value: '^Patch Set\s+\d+:\s+(recheck|reverify|verify-helm)\s*$'
+          projects:
+            - project-compare-type: 'ANT'
+              project-pattern: '{project}'
+              branches:
+                - branch-compare-type: 'ANT'
+                  branch-pattern: '**/{branch}'
+              file-paths:
+                - compare-type: 'ANT'
+                  pattern: '{files}'
+
+- trigger:
+    name: gerrit-trigger-helm-patch-merged
+    triggers:
+      - gerrit:
+          server-name: '{server}'
+          trigger-on:
+            - change-merged-event
+            - comment-added-contains-event:
+                comment-contains-value: '^remerge-helm$'
+          projects:
+            - project-compare-type: 'ANT'
+              project-pattern: '{project}'
+              branches:
+                - branch-compare-type: 'ANT'
+                  branch-pattern: '**/{branch}'
+              file-paths:
+                - compare-type: 'ANT'
+                  pattern: '{files}'
+
+- trigger:
+    name: gerrit-trigger-release-manually
+    triggers:
+      - gerrit:
+          server-name: '{server}'
+          trigger-on:
+            - comment-added-contains-event:
+                comment-contains-value: 'please release'
+          projects:
+            - project-compare-type: 'ANT'
+              project-pattern: '{project}'
+              branches:
+                - branch-compare-type: 'ANT'
+                  branch-pattern: '**/{branch}'
+              file-paths:
+                - compare-type: 'ANT'
+                  pattern: '**'
+
+- trigger:
+    name: trigger-on-build-success
+    triggers:
+      - reverse:
+          jobs: '{job-name}'
+          result: 'success'
+
+
+# WRAPPERS
+- wrapper:
+    name: build-timeout
+    wrappers:
+      - timeout:
+          type: absolute
+          timeout: 360
+          fail: true
+
+- wrapper:
+    name: golang110
+    wrappers:
+      - raw:
+          xml: |
+            <org.jenkinsci.plugins.golang.GolangBuildWrapper plugin="golang@1.2">
+            <goVersion>Golang 1.10</goVersion>
+            </org.jenkinsci.plugins.golang.GolangBuildWrapper>
+
+- wrapper:
+    name: golang111
+    wrappers:
+      - raw:
+          xml: |
+            <org.jenkinsci.plugins.golang.GolangBuildWrapper plugin="golang@1.2">
+            <goVersion>Golang 1.11</goVersion>
+            </org.jenkinsci.plugins.golang.GolangBuildWrapper>
+
+- wrapper:
+    name: golang112
+    wrappers:
+      - raw:
+          xml: |
+            <org.jenkinsci.plugins.golang.GolangBuildWrapper plugin="golang@1.2">
+            <goVersion>Golang 1.12</goVersion>
+            </org.jenkinsci.plugins.golang.GolangBuildWrapper>
+
+- wrapper:
+    name: golang114
+    wrappers:
+      - raw:
+          xml: |
+            <org.jenkinsci.plugins.golang.GolangBuildWrapper plugin="golang@1.2">
+            <goVersion>Golang 1.14</goVersion>
+            </org.jenkinsci.plugins.golang.GolangBuildWrapper>
+
+- wrapper:
+    # This wrapper is required for all jobs as it configures the wrappers
+    # needed by the eCOMP infra.
+    name: infra-wrappers
+    wrappers:
+      - timestamps
+      - timeout:
+          type: absolute
+          timeout: '{build-timeout}'
+          timeout-var: 'BUILD_TIMEOUT'
+          fail: true
+      - ssh-agent-credentials:
+          users:
+            - 'onap-jenkins-ssh'
+      - openstack:
+          single-use: true
+
+- wrapper:
+    # This wrapper is used for docker build jobs to use the dedicated docker
+    # build VM and turn off OpenStack single-use
+    name: infra-wrappers-docker-build
+    wrappers:
+      - timestamps
+      - timeout:
+          type: absolute
+          timeout: '{build-timeout}'
+          timeout-var: 'BUILD_TIMEOUT'
+          fail: true
+      - ssh-agent-credentials:
+          users:
+            - 'onap-jenkins-ssh'
+      - openstack:
+          single-use: false

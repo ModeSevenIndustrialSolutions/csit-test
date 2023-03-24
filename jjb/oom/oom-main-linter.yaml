@@ -1,0 +1,37 @@
+---
+- project:
+    name: oom-main-linters
+    project: oom
+    project-name: oom
+    python-version: python3
+    jobs:
+      - oom-linters
+    subproject:
+      - "commit":
+          tox-dir: "."
+          tox-envs: "gitlint"
+          pattern: "**"
+      - "doc8":
+          tox-dir: "."
+          tox-envs: "doc8"
+          pattern: "docs/**"
+      - "sphinx":
+          tox-dir: "."
+          tox-envs: "docs,docs-linkcheck"
+          pattern: "docs/**"
+          parallel: true
+      - "checkbashisms":
+          tox-dir: "."
+          tox-envs: "checkbashisms"
+          pattern: "**"
+      - "pre-commit":
+          tox-dir: "."
+          tox-envs: "pre-commit"
+          pattern: "**"
+    stream:
+      - "master":
+          branch: "master"
+      - "kohn":
+          branch: "kohn"
+      - "jakarta":
+          branch: "jakarta"

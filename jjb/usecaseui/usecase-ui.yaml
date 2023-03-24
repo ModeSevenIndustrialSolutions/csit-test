@@ -1,0 +1,54 @@
+---
+- project:
+    name: usecase-ui-project-view
+    project-name: usecase-ui
+    views:
+      - project-view
+
+- project:
+    name: usecase-ui
+    project-name: 'usecase-ui'
+    project: 'usecase-ui'
+    stream:
+      - 'master':
+          branch: 'master'
+      - 'kohn':
+          branch: 'kohn'
+    mvn-settings: 'usecase-ui-settings'
+    jobs:
+      - '{project-name}-{stream}-verify-java'
+      - '{project-name}-{stream}-merge-java'
+      - gerrit-maven-stage:
+          sign-artifacts: true
+          build-node: centos7-builder-4c-4g
+          maven-versions-plugin: true
+      - '{project-name}-{stream}-docker-java-daily':
+          mvn-params: '-Dmaven.test.skip=true'
+          build-node: ubuntu1804-docker-8c-8g
+      - '{project-name}-gerrit-release-jobs':
+          build-node: centos7-docker-8c-8g
+    files: '**'
+    archive-artifacts: ''
+    docker-pom: 'pom.xml'
+    mvn-profile: docker
+    build-node: ubuntu1804-builder-4c-4g
+
+- project:
+    name: usecase-ui-clm
+    jobs:
+      - gerrit-maven-clm
+    nexus-iq-namespace: 'onap-'
+    project: usecase-ui
+    project-name: 'usecase-ui'
+    build-node: ubuntu1804-builder-4c-4g
+    branch: 'master'
+    mvn-settings: 'usecase-ui-settings'
+
+- project:
+    name: usecase-ui-info
+    project-name: usecase-ui
+    jobs:
+      - gerrit-info-yaml-verify
+    build-node: centos7-builder-2c-1g
+    project: usecase-ui
+    branch: master
