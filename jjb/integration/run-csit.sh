@@ -201,7 +201,19 @@ fi
 docker_stats | tee "$WORKSPACE/archives/$TESTPLAN/_sysinfo-1-after-setup.txt"
 
 # Activate the virtualenv containing all the required libraries installed by prepare-csit.sh
-source_safely "${ROBOT3_VENV}/bin/activate"
+# source_safely "${ROBOT3_VENV}/bin/activate"
+
+# Assume that if ROBOT3_VENV is set, virtualenv
+#  with system site packages can be activated
+if [[ -f "${WORKSPACE}/env.properties" ]]; then
+    source "${WORKSPACE}/env.properties"
+elif [[ -f /tmp/env.properties ]]; then
+    source /tmp/env.properties
+fi
+
+if [[ -f "${ROBOT3_VENV}/bin/activate" ]]; then
+    source "${ROBOT3_VENV}/bin/activate"
+fi
 
 # Run test plan
 cd "$WORKDIR"
